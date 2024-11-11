@@ -64,16 +64,14 @@ func main() {
 	durationMinutes[0] = 0
 
 	for prev := 0; prev <= 10; prev++ {
-		time.Sleep(time.Second)
-		//time.Sleep(5 * time.Minute)
+		// time.Sleep(time.Second)
+		time.Sleep(5 * time.Minute)
 		batLvl := batteryLvlLinux()
 		fmt.Printf("battery Remaining: %d%%\n", batLvl)
 		durationMinutes = append(durationMinutes, durationMinutes[prev]+5)
 		batteryLvls = append(batteryLvls, batLvl)
 
 	}
-	// fmt.Println(batteryLvls)
-	// fmt.Println(durationMinutes)
 
 	p := plot.New()
 	p.Title.Text = "laptop charge"
