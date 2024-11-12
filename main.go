@@ -93,14 +93,14 @@ func traceBattery(interval time.Duration, unit time.Duration) ([]int, []int) {
 	return batteryLvls, times
 }
 
-func plotBattery(batteryLvls []int, durations []int) {
+func plotBattery(batteryLvls []int, times []int) {
 	p := plot.New()
-	p.Title.Text = "laptop charge"
+	p.Title.Text = "Laptop Charge"
 	p.X.Label.Text = "Time"
 	p.Y.Label.Text = "Battery Percentage"
-	points := makePoints(batteryLvls, durations)
+	points := makePoints(batteryLvls, times)
 	err := plotutil.AddLinePoints(p,
-		"Battery Over time", points)
+		"Battery Over Time", points)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -111,15 +111,15 @@ func plotBattery(batteryLvls []int, durations []int) {
 	fmt.Println("Successfully generated points.png")
 }
 
-func makePoints(batteryLvls []int, durations []int) plotter.XYs {
+func makePoints(batteryLvls []int, times []int) plotter.XYs {
 	n := len(batteryLvls)
-	if n != len(durations) {
+	if n != len(times) {
 		panic("There must be an equal number of values for battery levels and duration")
 	}
 
 	points := make(plotter.XYs, n)
 	for i := range n {
-		points[i].X = float64(durations[i])
+		points[i].X = float64(times[i])
 		points[i].Y = float64(batteryLvls[i])
 	}
 	return points
