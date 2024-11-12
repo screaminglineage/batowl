@@ -65,13 +65,14 @@ func main() {
 func traceBattery(interval time.Duration, unit time.Duration) ([]int, []int) {
 	batteryLvls := make([]int, 1)
 	times := make([]int, 1)
-	batteryLvls[0] = batteryLvlLinux()
+	// batteryLvls[0] = batteryLvlLinux()
+	batteryLvls[0] = batteryLvlWindows()
 	times[0] = 0
 
 	for prev := 0; prev <= 3; prev++ {
 		prevTime := time.Now()
 		time.Sleep(interval * unit)
-		batLvl := batteryLvlLinux()
+		batLvl := batteryLvlWindows()
 		fmt.Printf("Battery Remaining: %d%%\n", batLvl)
 
 		t := time.Now().Sub(prevTime)
