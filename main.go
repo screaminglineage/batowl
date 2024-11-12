@@ -54,7 +54,7 @@ func batteryLvlWindows() int {
 
 // TODO: check if the command really works on windows
 // TODO: add secondary thread which checks for a keypress to stop recording battery
-// TODO: customize the checking intervals
+// TODO: take input to set the interval and other options
 
 func main() {
 	BatLvls, times := traceBattery(1, time.Minute)
