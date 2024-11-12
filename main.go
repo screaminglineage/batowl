@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"strconv"
 	"time"
 
@@ -38,14 +39,14 @@ func batteryLvlLinux() int {
 
 func batteryLvlWindows() int {
 	cmd := exec.Command(
-		"Get-WmiObject",
-		"-Query", "\"SELECT EstimatedChargeRemaining FROM Win32Battery\"")
+		"powershell", "-Command",
+		"(Get-WmiObject -Query 'SELECT EstimatedChargeRemaining FROM Win32_Battery').EstimatedChargeRemaining")
 	batteryLvl, err := cmd.Output()
 	if err != nil {
 		log.Fatalln("Failed to get battery level: ", err)
 	}
 
-	lvl, err := strconv.Atoi(string(batteryLvl))
+	lvl, err := strconv.Atoi(strings.TrimRight(string(batteryLvl), "\r\n"))
 	if err != nil {
 		log.Fatalln("Failed to get battery level: ", err)
 	}
@@ -65,13 +66,14 @@ func main() {
 func traceBattery(interval time.Duration, unit time.Duration) ([]int, []int) {
 	batteryLvls := make([]int, 1)
 	times := make([]int, 1)
-	batteryLvls[0] = batteryLvlLinux()
+	// batteryLvls[0] = batteryLvlLinux()
+	batteryLvls[0] = batteryLvlWindows()
 	times[0] = 0
 
 	for prev := 0; prev <= 3; prev++ {
 		prevTime := time.Now()
 		time.Sleep(interval * unit)
-		batLvl := batteryLvlLinux()
+		batLvl := batteryLvlWindows()
 		fmt.Printf("Battery Remaining: %d%%\n", batLvl)
 
 		t := time.Now().Sub(prevTime)
