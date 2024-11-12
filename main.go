@@ -38,8 +38,8 @@ func batteryLvlLinux() int {
 
 func batteryLvlWindows() int {
 	cmd := exec.Command(
-		"Get-WmiObject",
-		"-Query", "\"SELECT EstimatedChargeRemaining FROM Win32Battery\"")
+		"powershell", "-Command",
+		"(Get-WmiObject -Query 'SELECT EstimatedChargeRemaining FROM Win32_Battery').EstimatedChargeRemaining")
 	batteryLvl, err := cmd.Output()
 	if err != nil {
 		log.Fatalln("Failed to get battery level: ", err)
