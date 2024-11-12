@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"strconv"
 	"time"
 
@@ -45,7 +46,7 @@ func batteryLvlWindows() int {
 		log.Fatalln("Failed to get battery level: ", err)
 	}
 
-	lvl, err := strconv.Atoi(string(batteryLvl))
+	lvl, err := strconv.Atoi(strings.TrimRight(string(batteryLvl), "\r\n"))
 	if err != nil {
 		log.Fatalln("Failed to get battery level: ", err)
 	}
