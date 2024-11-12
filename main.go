@@ -53,52 +53,59 @@ func batteryLvlWindows() int {
 }
 
 // TODO: check if the command really works on windows
-// TODO: generate plot
 // TODO: add secondary thread which checks for a keypress to stop recording battery
 // TODO: customize the checking intervals
 
 func main() {
+	BatLvls, times := traceBattery(1, time.Second)
+	fmt.Println(times)
+	plotBattery(BatLvls, times)
+}
+
+func traceBattery(interval time.Duration, unit time.Duration) ([]int, []int) {
 	batteryLvls := make([]int, 1)
-	durationMinutes := make([]int, 1)
+	times := make([]int, 1)
 	batteryLvls[0] = batteryLvlLinux()
-	durationMinutes[0] = 0
+	times[0] = 0
 
 	for prev := 0; prev <= 10; prev++ {
-		// time.Sleep(time.Second)
-		time.Sleep(5 * time.Minute)
+		prevTime := time.Now()
+		time.Sleep(interval * unit)
 		batLvl := batteryLvlLinux()
-		fmt.Printf("battery Remaining: %d%%\n", batLvl)
-		durationMinutes = append(durationMinutes, durationMinutes[prev]+5)
+		fmt.Printf("Battery Remaining: %d%%\n", batLvl)
+		times = append(times, times[prev]+int(time.Now().Sub(prevTime).Seconds()))
 		batteryLvls = append(batteryLvls, batLvl)
-
 	}
+	return batteryLvls, times
+}
 
+func plotBattery(batteryLvls []int, durations []int) {
 	p := plot.New()
 	p.Title.Text = "laptop charge"
 	p.X.Label.Text = "Time"
 	p.Y.Label.Text = "Battery Percentage"
-	points := makePoints(batteryLvls, durationMinutes)
+	points := makePoints(batteryLvls, durations)
 	err := plotutil.AddLinePoints(p,
 		"Battery Over time", points)
 	if err != nil {
 		log.Fatal(err)
 	}
-	// Save the plot to a PNG file.
+
 	if err := p.Save(10*vg.Inch, 10*vg.Inch, "points.png"); err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println("Successfully generated points.png")
 }
 
-func makePoints(batteryLvls []int, durationMinutes []int) plotter.XYs {
+func makePoints(batteryLvls []int, durations []int) plotter.XYs {
 	n := len(batteryLvls)
-	if n != len(durationMinutes) {
-		panic("There must be an equal amount of values for battery lvls and duration")
+	if n != len(durations) {
+		panic("There must be an equal number of values for battery levels and duration")
 	}
 
 	points := make(plotter.XYs, n)
 	for i := range n {
-		points[i].X = float64(durationMinutes[i])
+		points[i].X = float64(durations[i])
 		points[i].Y = float64(batteryLvls[i])
 	}
 	return points
