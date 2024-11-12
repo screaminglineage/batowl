@@ -57,7 +57,7 @@ func batteryLvlWindows() int {
 // TODO: customize the checking intervals
 
 func main() {
-	BatLvls, times := traceBattery(1, time.Second)
+	BatLvls, times := traceBattery(1, time.Minute)
 	fmt.Println(times)
 	plotBattery(BatLvls, times)
 }
@@ -68,12 +68,26 @@ func traceBattery(interval time.Duration, unit time.Duration) ([]int, []int) {
 	batteryLvls[0] = batteryLvlLinux()
 	times[0] = 0
 
-	for prev := 0; prev <= 10; prev++ {
+	for prev := 0; prev <= 3; prev++ {
 		prevTime := time.Now()
 		time.Sleep(interval * unit)
 		batLvl := batteryLvlLinux()
 		fmt.Printf("Battery Remaining: %d%%\n", batLvl)
-		times = append(times, times[prev]+int(time.Now().Sub(prevTime).Seconds()))
+
+		t := time.Now().Sub(prevTime)
+		var inc int
+		switch unit {
+		case time.Second:
+			inc = int(t.Seconds())
+		case time.Minute:
+			inc = int(t.Minutes())
+		case time.Hour:
+			inc = int(t.Hours())
+		default:
+			log.Panicln("traceBattery: Unreachable")
+		}
+
+		times = append(times, times[prev]+inc)
 		batteryLvls = append(batteryLvls, batLvl)
 	}
 	return batteryLvls, times
