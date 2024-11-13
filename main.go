@@ -6,8 +6,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
+	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"gonum.org/v1/plot"
@@ -53,27 +54,32 @@ func batteryLvlWindows() int {
 	return lvl
 }
 
-// TODO: check if the command really works on windows
 // TODO: add secondary thread which checks for a keypress to stop recording battery
 // TODO: take input to set the interval and other options
 
 func main() {
-	BatLvls, times := traceBattery(1, time.Minute)
+	var batteryLvlFunc func() int
+	if runtime.GOOS == "windows" {
+		batteryLvlFunc = batteryLvlWindows
+	} else {
+		batteryLvlFunc = batteryLvlLinux
+	}
+	batLvls, times := traceBattery(1, time.Second, batteryLvlFunc)
 	fmt.Println(times)
-	plotBattery(BatLvls, times)
+	plotBattery(batLvls, times)
 }
 
-func traceBattery(interval time.Duration, unit time.Duration) ([]int, []int) {
+func traceBattery(interval time.Duration, unit time.Duration, batteryLvl func() int) ([]int, []int) {
 	batteryLvls := make([]int, 1)
 	times := make([]int, 1)
 	// batteryLvls[0] = batteryLvlLinux()
-	batteryLvls[0] = batteryLvlWindows()
+	batteryLvls[0] = batteryLvl()
 	times[0] = 0
 
 	for prev := 0; prev <= 3; prev++ {
 		prevTime := time.Now()
 		time.Sleep(interval * unit)
-		batLvl := batteryLvlWindows()
+		batLvl := batteryLvl()
 		fmt.Printf("Battery Remaining: %d%%\n", batLvl)
 
 		t := time.Now().Sub(prevTime)
