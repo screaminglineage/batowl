@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"golang.org/x/term"
 	"log"
 	"os"
 	"os/exec"
@@ -9,12 +10,20 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/plotutil"
 	"gonum.org/v1/plot/vg"
+)
+
+type Message int
+
+const (
+	QuitMessage    Message = iota
+	RefreshMessage         = iota
 )
 
 func batteryLvlLinux() int {
@@ -54,8 +63,70 @@ func batteryLvlWindows() int {
 	return lvl
 }
 
-// TODO: add secondary thread which checks for a keypress to stop recording battery
 // TODO: take input to set the interval and other options
+
+// func run(batteryLvlFunc func() int) {
+// 	// Channel to signal the input handling completion
+// 	done := make(chan bool)
+// 	comms := make(chan Message)
+//
+// 	// Goroutine to wait for user input
+// 	go func() {
+// 		oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
+// 		if err != nil {
+// 			log.Fatalln(err)
+// 		}
+// 		defer term.Restore(int(os.Stdin.Fd()), oldState)
+//
+// 		fmt.Println("Press `q` to quit\r")
+// 		buf := make([]byte, 1)
+// 		for {
+// 			_, err := os.Stdin.Read(buf)
+// 			if err != nil {
+// 				fmt.Println(err, "\r")
+// 				continue
+// 			}
+//
+// 			switch buf[0] {
+// 			case 'q':
+// 				comms <- QuitMessage
+// 				return
+// 			case 'r':
+// 				comms <- RefreshMessage
+// 			}
+// 		}
+// 	}()
+//
+// 	// Goroutine for background work that runs every n seconds
+// 	go func() {
+// 		i := 0
+// 		ticker := time.NewTicker(2 * time.Second) // Change interval as needed
+// 		defer ticker.Stop()
+// 		for {
+// 			select {
+// 			case a := <-comms:
+// 				switch a {
+// 				case QuitMessage:
+// 					fmt.Println("Stopping background work...")
+// 					done <- true
+// 					return // Exit the Goroutine
+// 				case RefreshMessage:
+// 					fmt.Println("Doing background work...", i, "\r")
+// 					i++
+// 				}
+// 			case <-ticker.C:
+// 				batLvls, times := traceBattery(1, time.Second, batteryLvlFunc)
+// 				i++
+// 			}
+// 		}
+// 	}()
+
+// Wait for the input handling Goroutine to finish
+// 	<-done
+// 	fmt.Println("Program stopped.")
+// }
+
+var wg sync.WaitGroup
 
 func main() {
 	var batteryLvlFunc func() int
@@ -64,41 +135,88 @@ func main() {
 	} else {
 		batteryLvlFunc = batteryLvlLinux
 	}
-	batLvls, times := traceBattery(1, time.Second, batteryLvlFunc)
+
+	comms := make(chan Message)
+
+	wg.Add(1)
+	go userInput(comms)
+	batLvls, times := traceBattery(1, time.Second, batteryLvlFunc, comms)
+	wg.Wait()
+
 	fmt.Println(times)
 	plotBattery(batLvls, times)
 }
 
-func traceBattery(interval time.Duration, unit time.Duration, batteryLvl func() int) ([]int, []int) {
+func userInput(comms chan Message) {
+	defer wg.Done()
+	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer term.Restore(int(os.Stdin.Fd()), oldState)
+
+	fmt.Println("Press `q` to quit\r")
+	buf := make([]byte, 1)
+	for {
+		_, err := os.Stdin.Read(buf)
+		if err != nil {
+			fmt.Println(err, "\r")
+			continue
+		}
+
+		switch buf[0] {
+		case 'q':
+			comms <- QuitMessage
+			return
+		case 'r':
+			comms <- RefreshMessage
+		}
+	}
+}
+
+func traceBattery(interval time.Duration, unit time.Duration, batteryLvl func() int, comms chan Message) ([]int, []int) {
 	batteryLvls := make([]int, 1)
 	times := make([]int, 1)
-	// batteryLvls[0] = batteryLvlLinux()
 	batteryLvls[0] = batteryLvl()
 	times[0] = 0
 
-	for prev := 0; prev <= 3; prev++ {
-		prevTime := time.Now()
-		time.Sleep(interval * unit)
-		batLvl := batteryLvl()
-		fmt.Printf("Battery Remaining: %d%%\n", batLvl)
+	ticker := time.NewTicker(interval * unit)
+	defer ticker.Stop()
 
-		t := time.Now().Sub(prevTime)
-		var inc int
-		switch unit {
-		case time.Second:
-			inc = int(t.Seconds())
-		case time.Minute:
-			inc = int(t.Minutes())
-		case time.Hour:
-			inc = int(t.Hours())
-		default:
-			log.Panicln("traceBattery: Unreachable")
+	// prevTime := time.Now()
+	for prev := 0; ; prev++ {
+		select {
+		case msg := <-comms:
+			switch msg {
+			case QuitMessage:
+				fmt.Println("Quitting...\r")
+				return batteryLvls, times
+			case RefreshMessage:
+				log.Panic("todo")
+			}
+		case <-ticker.C:
+			batLvl := batteryLvl()
+			fmt.Printf("Battery Remaining: %d%%\n\r", batLvl)
+
+			// t := time.Now().Sub(prevTime)
+			t := interval * unit
+			var inc int
+			switch unit {
+			case time.Second:
+				inc = int(t.Seconds())
+			case time.Minute:
+				inc = int(t.Minutes())
+			case time.Hour:
+				inc = int(t.Hours())
+			default:
+				log.Panicln("traceBattery: Unreachable")
+			}
+
+			times = append(times, times[prev]+inc)
+			batteryLvls = append(batteryLvls, batLvl)
+			// prevTime = time.Now()
 		}
-
-		times = append(times, times[prev]+inc)
-		batteryLvls = append(batteryLvls, batLvl)
 	}
-	return batteryLvls, times
 }
 
 func plotBattery(batteryLvls []int, times []int) {
