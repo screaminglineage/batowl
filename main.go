@@ -175,46 +175,46 @@ func userInput(comms chan Message) {
 }
 
 func traceBattery(interval time.Duration, unit time.Duration, batteryLvl func() int, comms chan Message) ([]int, []int) {
+	update := func(i int, batteryLvls []int, times []int) (newBatteryLvls []int, newTimes []int) {
+		t := interval * unit
+		var inc int
+		switch unit {
+		case time.Second:
+			inc = int(t.Seconds())
+		case time.Minute:
+			inc = int(t.Minutes())
+		case time.Hour:
+			inc = int(t.Hours())
+		default:
+			log.Panicln("traceBattery: Unreachable")
+		}
+		newBatteryLvls = append(batteryLvls, batteryLvl())
+		newTimes = append(times, times[i]+inc)
+		return
+	}
+
 	batteryLvls := make([]int, 1)
 	times := make([]int, 1)
 	batteryLvls[0] = batteryLvl()
 	times[0] = 0
 
+	fmt.Printf("Recording Battery every %d second(s)\n\r", int(unit.Seconds()))
+
 	ticker := time.NewTicker(interval * unit)
 	defer ticker.Stop()
 
-	// prevTime := time.Now()
 	for prev := 0; ; prev++ {
 		select {
 		case msg := <-comms:
 			switch msg {
 			case QuitMessage:
-				fmt.Println("Quitting...\r")
 				return batteryLvls, times
 			case RefreshMessage:
-				log.Panic("todo")
+				batteryLvls, times = update(prev, batteryLvls, times)
+				fmt.Printf("Updated Record\r")
 			}
 		case <-ticker.C:
-			batLvl := batteryLvl()
-			fmt.Printf("Battery Remaining: %d%%\n\r", batLvl)
-
-			// t := time.Now().Sub(prevTime)
-			t := interval * unit
-			var inc int
-			switch unit {
-			case time.Second:
-				inc = int(t.Seconds())
-			case time.Minute:
-				inc = int(t.Minutes())
-			case time.Hour:
-				inc = int(t.Hours())
-			default:
-				log.Panicln("traceBattery: Unreachable")
-			}
-
-			times = append(times, times[prev]+inc)
-			batteryLvls = append(batteryLvls, batLvl)
-			// prevTime = time.Now()
+			batteryLvls, times = update(prev, batteryLvls, times)
 		}
 	}
 }
