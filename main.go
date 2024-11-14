@@ -165,16 +165,24 @@ func userInput(comms chan Message) {
 }
 
 func traceBattery(interval time.Duration, unit time.Duration, batteryLvl func() int, comms chan Message) ([]int, []int) {
+
+	batteryLvls := make([]int, 1)
+	times := make([]int, 1)
+	batteryLvls[0] = batteryLvl()
+	times[0] = 0
+
+	prevTime := time.Now()
 	update := func(i int, batteryLvls []int, times []int) (newBatteryLvls []int, newTimes []int) {
-		t := interval * unit
+		elapsed := time.Now().Sub(prevTime)
+		prevTime = time.Now()
 		var inc int
 		switch unit {
 		case time.Second:
-			inc = int(t.Seconds())
+			inc = int(elapsed.Seconds())
 		case time.Minute:
-			inc = int(t.Minutes())
+			inc = int(elapsed.Minutes())
 		case time.Hour:
-			inc = int(t.Hours())
+			inc = int(elapsed.Hours())
 		default:
 			log.Panicln("traceBattery: Unreachable")
 		}
@@ -182,11 +190,6 @@ func traceBattery(interval time.Duration, unit time.Duration, batteryLvl func() 
 		newTimes = append(times, times[i]+inc)
 		return
 	}
-
-	batteryLvls := make([]int, 1)
-	times := make([]int, 1)
-	batteryLvls[0] = batteryLvl()
-	times[0] = 0
 
 	ticker := time.NewTicker(interval * unit)
 	defer ticker.Stop()
@@ -197,8 +200,6 @@ func traceBattery(interval time.Duration, unit time.Duration, batteryLvl func() 
 			switch msg {
 			case QuitMessage:
 				return batteryLvls, times
-				// TODO: the update in case of RefreshMessage does not take into account
-				// the time since the last update
 			case RefreshMessage:
 				batteryLvls, times = update(prev, batteryLvls, times)
 				fmt.Printf("Updated Record [%d]\r", prev)
