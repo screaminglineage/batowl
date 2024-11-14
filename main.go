@@ -197,6 +197,8 @@ func traceBattery(interval time.Duration, unit time.Duration, batteryLvl func() 
 			switch msg {
 			case QuitMessage:
 				return batteryLvls, times
+				// TODO: the update in case of RefreshMessage does not take into account
+				// the time since the last update
 			case RefreshMessage:
 				batteryLvls, times = update(prev, batteryLvls, times)
 				fmt.Printf("Updated Record [%d]\r", prev)
