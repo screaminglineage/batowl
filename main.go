@@ -73,25 +73,29 @@ func parseInterval() (interval time.Duration, unit time.Duration, err error) {
 	if err != nil {
 		return
 	}
+	text = strings.TrimRight(text, "\r\n")
 	// defaults to 5 minutes
-	if len(text) == 1 && text[0] == '\n' {
+	if len(text) == 0 {
 		interval = 5
 		unit = time.Minute
 		return
 	}
 
 	i := 0
-	for ; unicode.IsDigit(rune(text[i])); i++ {
+	for ; i < len(text) && unicode.IsDigit(rune(text[i])); i++ {
 	}
-
-	num, _ := strconv.Atoi(text[:i])
+	num, err := strconv.Atoi(text[:i])
+	if err != nil {
+		err = errors.New("Interval must be a number")
+		return
+	}
 	if num <= 0 {
 		err = errors.New("Interval cannot be 0 or negative,")
 		return
 	}
 	interval = time.Duration(num)
 
-	text = strings.TrimRight(text[i:], "\n")
+	text = text[i:]
 	switch text {
 	case "s":
 		unit = time.Second
@@ -100,7 +104,11 @@ func parseInterval() (interval time.Duration, unit time.Duration, err error) {
 	case "h":
 		unit = time.Hour
 	default:
-		err = errors.New(fmt.Sprintf("Unsupported unit: `%s`,", text))
+		if len(text) == 0 {
+			err = errors.New("Unit must be provided")
+		} else {
+			err = errors.New(fmt.Sprintf("Unsupported unit: `%s`,", text))
+		}
 		return
 	}
 	return
