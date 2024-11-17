@@ -70,13 +70,46 @@ func batteryLvlWindows() int {
 	return lvl
 }
 
-func parseInterval() (interval time.Duration, unit time.Duration, err error) {
+func readInputAndTrim() (string, error) {
 	reader := bufio.NewReader(os.Stdin)
 	text, err := reader.ReadString('\n')
 	if err != nil {
+		return "", err
+	}
+	return strings.TrimRight(text, "\r\n"), nil
+}
+
+func parseNumber(text string) (int, string, error) {
+	i := 0
+	for ; i < len(text) && unicode.IsDigit(rune(text[i])); i++ {
+	}
+	num, err := strconv.Atoi(text[:i])
+	return num, text[i:], err
+}
+
+func parseUnit(text string) (time.Duration, error) {
+	switch text {
+	case "s":
+		return time.Second, nil
+	case "m":
+		return time.Minute, nil
+	case "h":
+		return time.Hour, nil
+	default:
+		if len(text) == 0 {
+			return time.Duration(0), errors.New("Unit must be provided")
+		} else {
+			return time.Duration(0), errors.New(fmt.Sprintf("Unsupported unit: `%s`,", text))
+		}
+	}
+}
+
+func parseInterval() (interval time.Duration, unit time.Duration, err error) {
+	text, err := readInputAndTrim()
+	if err != nil {
 		return
 	}
-	text = strings.TrimRight(text, "\r\n")
+
 	// defaults to 5 minutes
 	if len(text) == 0 {
 		interval = 5
@@ -84,10 +117,7 @@ func parseInterval() (interval time.Duration, unit time.Duration, err error) {
 		return
 	}
 
-	i := 0
-	for ; i < len(text) && unicode.IsDigit(rune(text[i])); i++ {
-	}
-	num, err := strconv.Atoi(text[:i])
+	num, text, err := parseNumber(text)
 	if err != nil {
 		err = errors.New("Interval must be a number")
 		return
@@ -97,70 +127,37 @@ func parseInterval() (interval time.Duration, unit time.Duration, err error) {
 		return
 	}
 	interval = time.Duration(num)
-
-	text = text[i:]
-	switch text {
-	case "s":
-		unit = time.Second
-	case "m":
-		unit = time.Minute
-	case "h":
-		unit = time.Hour
-	default:
-		if len(text) == 0 {
-			err = errors.New("Unit must be provided")
-		} else {
-			err = errors.New(fmt.Sprintf("Unsupported unit: `%s`,", text))
-		}
-		return
-	}
+	unit, err = parseUnit(text)
 	return
 }
 
 func parseDuration() (duration time.Duration, err error) {
-	reader := bufio.NewReader(os.Stdin)
-	text, err := reader.ReadString('\n')
+	text, err := readInputAndTrim()
 	if err != nil {
 		return
 	}
-	text = strings.TrimRight(text, "\r\n")
 	// defaults to 0 (no duration)
 	if len(text) == 0 {
 		duration = time.Duration(0)
 		return
 	}
 
-	i := 0
-	for ; i < len(text) && unicode.IsDigit(rune(text[i])); i++ {
-	}
-	n, err := strconv.Atoi(text[:i])
+	n, text, err := parseNumber(text)
 	if err != nil {
-		err = errors.New("Interval must be a number")
+		err = errors.New("Duration must be a number")
 		return
 	}
-	if n <= 0 {
-		err = errors.New("Interval cannot be 0 or negative,")
+	if n < 0 {
+		err = errors.New("Duration cannot be negative,")
 		return
 	}
 	num := time.Duration(n)
 
-	text = text[i:]
-	var unit time.Duration
-	switch text {
-	case "s":
-		unit = time.Second
-	case "m":
-		unit = time.Minute
-	case "h":
-		unit = time.Hour
-	default:
-		if len(text) == 0 {
-			err = errors.New("Unit must be provided")
-		} else {
-			err = errors.New(fmt.Sprintf("Unsupported unit: `%s`,", text))
-		}
+	if n == 0 {
+		duration = time.Duration(0)
 		return
 	}
+	unit, err := parseUnit(text)
 	duration = time.Duration(num * unit)
 	return
 }
