@@ -115,6 +115,7 @@ func parseInterval() (interval time.Duration, unit time.Duration, err error) {
 }
 
 var wg sync.WaitGroup
+var oldTermState *term.State
 
 func main() {
 	fmt.Println("Enter interval to record after (eg: 1s/5m/1h) [DEFAULT: 5m]")
@@ -147,10 +148,12 @@ func main() {
 func userInput(comms chan Message) {
 	defer wg.Done()
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
+	oldTermState = oldState
+
 	if err != nil {
 		log.Fatalln(err)
 	}
-	defer term.Restore(int(os.Stdin.Fd()), oldState)
+	defer term.Restore(int(os.Stdin.Fd()), oldTermState)
 
 	fmt.Println("Press `q` to quit, `r` to force a recording now\r")
 	buf := make([]byte, 1)
@@ -197,6 +200,13 @@ func traceBattery(interval time.Duration, unit time.Duration, batteryLvl func() 
 		newTimes = append(times, times[i]+inc)
 		return
 	}
+
+	go func() {
+		time.Sleep(3 * time.Second)
+		term.Restore(int(os.Stdin.Fd()), oldTermState)
+		wg.Done()
+		comms <- QuitMessage
+	}()
 
 	ticker := time.NewTicker(interval * unit)
 	defer ticker.Stop()
