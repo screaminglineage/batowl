@@ -27,7 +27,6 @@ const (
 var wg sync.WaitGroup
 var oldTermState *term.State
 
-// TODO: try to fix the hacky way in which the "stop after duration" feature is implemented
 func main() {
 	interval, unit, duration := userinput.UserInput()
 
@@ -110,6 +109,7 @@ func traceBattery(
 		return
 	}
 
+	// TODO: try to fix the hacky way in which the "stop after duration" feature is implemented
 	if duration != 0 {
 		go func() {
 			time.Sleep(duration)
