@@ -165,6 +165,7 @@ func parseDuration() (duration time.Duration, err error) {
 	return
 }
 
+// TODO: try to fix the hacky way in which the "stop after duration" feature is implemented
 func main() {
 	fmt.Println("Enter interval to record after (eg: 1s/5m/1h) [DEFAULT: 5m]")
 	fmt.Print("> ")
