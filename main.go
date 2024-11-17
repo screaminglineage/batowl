@@ -30,6 +30,9 @@ const (
 	RefreshMessage         = iota
 )
 
+var wg sync.WaitGroup
+var oldTermState *term.State
+
 func batteryLvlLinux() int {
 	batteryFilePath, err := filepath.Glob("/sys/class/power_supply/BAT*")
 	if err != nil || len(batteryFilePath) == 0 {
@@ -114,8 +117,53 @@ func parseInterval() (interval time.Duration, unit time.Duration, err error) {
 	return
 }
 
-var wg sync.WaitGroup
-var oldTermState *term.State
+func parseDuration() (duration time.Duration, err error) {
+	reader := bufio.NewReader(os.Stdin)
+	text, err := reader.ReadString('\n')
+	if err != nil {
+		return
+	}
+	text = strings.TrimRight(text, "\r\n")
+	// defaults to 0 (no duration)
+	if len(text) == 0 {
+		duration = time.Duration(0)
+		return
+	}
+
+	i := 0
+	for ; i < len(text) && unicode.IsDigit(rune(text[i])); i++ {
+	}
+	n, err := strconv.Atoi(text[:i])
+	if err != nil {
+		err = errors.New("Interval must be a number")
+		return
+	}
+	if n <= 0 {
+		err = errors.New("Interval cannot be 0 or negative,")
+		return
+	}
+	num := time.Duration(n)
+
+	text = text[i:]
+	var unit time.Duration
+	switch text {
+	case "s":
+		unit = time.Second
+	case "m":
+		unit = time.Minute
+	case "h":
+		unit = time.Hour
+	default:
+		if len(text) == 0 {
+			err = errors.New("Unit must be provided")
+		} else {
+			err = errors.New(fmt.Sprintf("Unsupported unit: `%s`,", text))
+		}
+		return
+	}
+	duration = time.Duration(num * unit)
+	return
+}
 
 func main() {
 	fmt.Println("Enter interval to record after (eg: 1s/5m/1h) [DEFAULT: 5m]")
@@ -125,6 +173,14 @@ func main() {
 		fmt.Println(err, "Try Again")
 		fmt.Print("> ")
 		interval, unit, err = parseInterval()
+	}
+	fmt.Println("Enter duration to stop after, 0 for no limit (eg: 1s/5m/1h) [DEFAULT: 0]")
+	fmt.Print("> ")
+	duration, err := parseDuration()
+	for err != nil {
+		fmt.Println(err, "Try Again")
+		fmt.Print("> ")
+		duration, err = parseDuration()
 	}
 
 	var batteryLvlFunc func() int
@@ -139,7 +195,7 @@ func main() {
 	comms := make(chan Message)
 	wg.Add(1)
 	go userInput(comms)
-	batLvls, times := traceBattery(interval, unit, batteryLvlFunc, comms)
+	batLvls, times := traceBattery(interval, unit, duration, batteryLvlFunc, comms)
 	wg.Wait()
 	plotBattery(batLvls, times)
 	fmt.Println("Successfully generated points.png")
@@ -174,7 +230,12 @@ func userInput(comms chan Message) {
 	}
 }
 
-func traceBattery(interval time.Duration, unit time.Duration, batteryLvl func() int, comms chan Message) ([]int, []int) {
+func traceBattery(
+	interval time.Duration,
+	unit time.Duration,
+	duration time.Duration,
+	batteryLvl func() int,
+	comms chan Message) ([]int, []int) {
 
 	batteryLvls := make([]int, 1)
 	times := make([]int, 1)
@@ -202,7 +263,7 @@ func traceBattery(interval time.Duration, unit time.Duration, batteryLvl func() 
 	}
 
 	go func() {
-		time.Sleep(3 * time.Second)
+		time.Sleep(duration)
 		term.Restore(int(os.Stdin.Fd()), oldTermState)
 		wg.Done()
 		comms <- QuitMessage
