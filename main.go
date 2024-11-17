@@ -99,7 +99,7 @@ func parseUnit(text string) (time.Duration, error) {
 		if len(text) == 0 {
 			return time.Duration(0), errors.New("Unit must be provided")
 		} else {
-			return time.Duration(0), errors.New(fmt.Sprintf("Unsupported unit: `%s`,", text))
+			return time.Duration(0), errors.New(fmt.Sprintf("Unsupported unit: `%s`", text))
 		}
 	}
 }
@@ -123,7 +123,7 @@ func parseInterval() (interval time.Duration, unit time.Duration, err error) {
 		return
 	}
 	if num <= 0 {
-		err = errors.New("Interval cannot be 0 or negative,")
+		err = errors.New("Interval cannot be 0 or negative")
 		return
 	}
 	interval = time.Duration(num)
@@ -136,7 +136,7 @@ func parseDuration() (duration time.Duration, err error) {
 	if err != nil {
 		return
 	}
-	// defaults to 0 (no duration)
+	// defaults to 0 (no limit)
 	if len(text) == 0 {
 		duration = time.Duration(0)
 		return
@@ -148,7 +148,7 @@ func parseDuration() (duration time.Duration, err error) {
 		return
 	}
 	if n < 0 {
-		err = errors.New("Duration cannot be negative,")
+		err = errors.New("Duration cannot be negative")
 		return
 	}
 	num := time.Duration(n)
@@ -162,24 +162,29 @@ func parseDuration() (duration time.Duration, err error) {
 	return
 }
 
-// TODO: try to fix the hacky way in which the "stop after duration" feature is implemented
-func main() {
+func takeInput() (interval time.Duration, unit time.Duration, duration time.Duration) {
 	fmt.Println("Enter interval to record after (eg: 1s/5m/1h) [DEFAULT: 5m]")
 	fmt.Print("> ")
 	interval, unit, err := parseInterval()
 	for err != nil {
-		fmt.Println(err, "Try Again")
+		fmt.Println(err, ", Try Again")
 		fmt.Print("> ")
 		interval, unit, err = parseInterval()
 	}
 	fmt.Println("Enter duration to stop after, 0 for no limit (eg: 1s/5m/1h) [DEFAULT: 0]")
 	fmt.Print("> ")
-	duration, err := parseDuration()
+	duration, err = parseDuration()
 	for err != nil {
-		fmt.Println(err, "Try Again")
+		fmt.Println(err, ", Try Again")
 		fmt.Print("> ")
 		duration, err = parseDuration()
 	}
+	return
+}
+
+// TODO: try to fix the hacky way in which the "stop after duration" feature is implemented
+func main() {
+	interval, unit, duration := takeInput()
 
 	var batteryLvlFunc func() int
 	if runtime.GOOS == "windows" {
