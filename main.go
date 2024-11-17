@@ -262,12 +262,14 @@ func traceBattery(
 		return
 	}
 
-	go func() {
-		time.Sleep(duration)
-		term.Restore(int(os.Stdin.Fd()), oldTermState)
-		wg.Done()
-		comms <- QuitMessage
-	}()
+	if duration != 0 {
+		go func() {
+			time.Sleep(duration)
+			comms <- QuitMessage
+			term.Restore(int(os.Stdin.Fd()), oldTermState)
+			wg.Done()
+		}()
+	}
 
 	ticker := time.NewTicker(interval * unit)
 	defer ticker.Stop()
