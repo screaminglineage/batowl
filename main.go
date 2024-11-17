@@ -140,9 +140,8 @@ func main() {
 	go userInput(comms)
 	batLvls, times := traceBattery(interval, unit, batteryLvlFunc, comms)
 	wg.Wait()
-
-	fmt.Println(times)
 	plotBattery(batLvls, times)
+	fmt.Println("Successfully generated points.png")
 }
 
 func userInput(comms chan Message) {
@@ -220,9 +219,10 @@ func traceBattery(interval time.Duration, unit time.Duration, batteryLvl func() 
 
 func plotBattery(batteryLvls []int, times []int) {
 	p := plot.New()
-	p.Title.Text = "Laptop Charge"
+	p.Title.Text = "Battery Charge vs Time"
 	p.X.Label.Text = "Time"
 	p.Y.Label.Text = "Battery Percentage"
+
 	points := makePoints(batteryLvls, times)
 	err := plotutil.AddLinePoints(p,
 		"Battery Over Time", points)
@@ -233,7 +233,6 @@ func plotBattery(batteryLvls []int, times []int) {
 	if err := p.Save(10*vg.Inch, 10*vg.Inch, "points.png"); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Successfully generated points.png")
 }
 
 func makePoints(batteryLvls []int, times []int) plotter.XYs {
